@@ -31,8 +31,8 @@
    - MNIST pytorch example: https://clay-atlas.com/blog/2019/10/19/pytorch-教學-getting-start-訓練分類器-mnist/
 ## Describe
 *  **NEAR simple example**
-   *![NEQR example]() 
+   *![NEQR example](https://github.com/double1010x2/python/blob/master/QuantumComputing/NEQR_example.png) 
 *  **Mearsurement(with only numpy)**
-   *![measurement]()  
+   *![measurement](https://github.com/double1010x2/python/blob/master/QuantumComputing/network_structure.png)  
   
 
