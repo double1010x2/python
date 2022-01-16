@@ -1,5 +1,6 @@
 from codecs import IncrementalDecoder
 from functools import total_ordering
+from operator import imatmul
 from numpy.core.getlimits import iinfo
 from numpy.lib.function_base import _update_dim_sizes
 from numpy.lib.type_check import imag
@@ -29,6 +30,7 @@ testSet = datasets.MNIST(root='MNIST', download=True, train=False, transform=tra
 trainLoader = dset.DataLoader(trainSet, batch_size=batch_size, shuffle=True)
 testLoader = dset.DataLoader(testSet, batch_size=batch_size, shuffle=False)
 
+n_top = 0
 n_qb = 10
 cqmat = gq.genQubitMat(n_qb)
 cqmat.genQMat()
@@ -42,14 +44,14 @@ for ri in range(qftmat.shape[0]):
         qftmat[ri,ci] = (1j)**(ri*ci)/(n_dim)
 
 
-q = 3
+q = 2
 n_q = int(2**q)
 
 # Model
 class qNet(nn.Module):
     def __init__(self):
         super(qNet, self).__init__()
-        dim_in    = n_qmat*n_q#784#n_qmat*n_q
+        dim_in    = n_qmat*n_q+n_top#784#n_qmat*n_q
         dim_l1    = int(dim_in*0.5)#128
         dim_l2    = int(dim_l1*0.5)#64
         self.main = nn.Sequential(
@@ -71,7 +73,7 @@ print(qnet)
 
 # Parameters
 epochs = 20
-lr = 0.002
+lr = 0.02
 criterion = nn.NLLLoss()
 optimizer = optim.SGD(qnet.parameters(), lr=lr, momentum=0.9)
 
@@ -91,15 +93,29 @@ def splitByiGrid(imags):
             imags_new[:,qi,...] = np.logical_and(imags[:,0,...]>=istart, imags[:,0,...]<iend).astype(np.float32)
     return imags_new
 
+gx, gy = np.mgrid[-8:8,-8:8]
+gsigma = 4 
+gmat   = np.exp(-(gx**2+gy**2)/(2*gsigma**2))
+
+batch_num   = len(batch_size_list)
+epoch_step  = epochs // batch_num + 1
+
 for epoch in range(epochs):
     running_loss    = 0.
     total           = 0.
     correct         = 0.
-    batch_size      = int(np.random.choice(batch_size_list, 1)[0])
+#    batch_size      = int(np.random.choice(batch_size_list, 1)[0])
+    batch_size      = batch_size_list[epoch // epoch_step]
     trainSet = datasets.MNIST(root='MNIST', download=False, train=True, transform=transform)
     trainLoader = dset.DataLoader(trainSet, batch_size=batch_size, shuffle=True)
     for times, data in enumerate(trainLoader):
         data_ori    = data[0].clone()
+        #ii          = np.argsort(data_dsp_f, axis=1)[:,:n_top]
+        #imat        = np.zeros((14*14), np.int)
+        #imat[ii[0]] = 1
+        #plt.matshow(imat.reshape(14,14))
+        #plt.show()
+        #import pdb; pdb.set_trace()
         data[0]     = ups(data[0]).numpy()
         data[0]     = splitByiGrid(data[0])
         data_sum    = (data[0].reshape(data[0].shape[0],n_q, -1)).sum(axis=2)
@@ -122,6 +138,10 @@ for epoch in range(epochs):
 #            input[:,2*qi]   = qfeature.sum(axis=1)/data_flat.sum(axis=1)
 #            input[:,2*qi+1] = qftf.sum(axis=1)/data_qft_flat.sum(axis=1)
         input       = torch.from_numpy(input)
+        data_dsp    = nn.Upsample(scale_factor = 0.5, mode="nearest")(torch.from_numpy(-data[0]+1))*gmat[None,None,...]
+        data_dsp_f  = data_dsp[:,0,...].view(data_dsp.shape[0], -1)
+        data_dsp_top = np.argsort(data_dsp_f, axis=1)[:,:n_top].float()/(data_dsp_f.shape[1])
+        input       = torch.cat([input, data_dsp_top], 1)
         input, labels  = input.to(device), data[1].to(device)
 #        input, labels  = data_ori.to(device), data[1].to(device)
 #        input       = input.view(input.shape[0], -1)
@@ -165,6 +185,10 @@ with torch.no_grad():
                 qfeature = qfeature.reshape(qfeature.shape[0], -1)
                 input[:,ii+qi]   = qfeature.sum(axis=1)/data_sum[:,nqi]
         input       = torch.from_numpy(input)
+        data_dsp    = nn.Upsample(scale_factor = 0.5, mode="nearest")(torch.from_numpy(-data[0]+1))*gmat[None,None,...]
+        data_dsp_f  = data_dsp[:,0,...].view(data_dsp.shape[0], -1)
+        data_dsp_top = np.argsort(data_dsp_f, axis=1)[:,:n_top].float()/(data_dsp_f.shape[1])
+        input       = torch.cat([input, data_dsp_top], 1)
         labels = data[1]
         inputs, labels = input.to(device), labels.to(device)
 #        inputs = inputs.view(inputs.shape[0], -1)
@@ -194,6 +218,10 @@ with torch.no_grad():
                 input[:,ii+qi]   = qfeature.sum(axis=1)/data_sum[:,nqi]
         input       = torch.from_numpy(input)
         labels = data[1]
+        data_dsp    = nn.Upsample(scale_factor = 0.5, mode="nearest")(torch.from_numpy(-data[0]+1))*gmat[None,None,...]
+        data_dsp_f  = data_dsp[:,0,...].view(data_dsp.shape[0], -1)
+        data_dsp_top = np.argsort(data_dsp_f, axis=1)[:,:n_top].float()/(data_dsp_f.shape[1])
+        input       = torch.cat([input, data_dsp_top], 1)
         inputs, labels = input.to(device), data[1].to(device)
 #        inputs = inputs.view(inputs.shape[0], -1)
 
