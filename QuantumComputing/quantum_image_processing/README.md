@@ -27,9 +27,9 @@
    * Accuracy of 8: 0.615385
    * Accuracy of 9: 0.760870
 *  **Reference**
-   - ![NEQR paper](https://doi.org/10.1007/s11128-013-0567-z)
-   - ![MNIST pytorch example](https://clay-atlas.com/blog/2019/10/19/pytorch-教學-getting-start-訓練分類器-mnist/)
-   - ![MLP-Mixer](https://arxiv.org/abs/2105.01601)
+   [NEQR paper](https://doi.org/10.1007/s11128-013-0567-z)
+   [MNIST pytorch example](https://clay-atlas.com/blog/2019/10/19/pytorch-教學-getting-start-訓練分類器-mnist/)
+   [MLP-Mixer](https://arxiv.org/abs/2105.01601)
 ## Describe
 *  **NEAR simple example**
    - ![NEQR example](NEQR_example.png) 
