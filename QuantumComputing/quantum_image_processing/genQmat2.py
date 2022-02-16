@@ -12,7 +12,7 @@ class genQubitMat():
         self.qmat    = None
         pass
 
-    def genQMat(self):
+    def genQMat(self, n_skip_grid=0):
 
         sub_qmat = np.zeros((self.n_dim, self.n_dim), np.int)
         qmat     = np.zeros((self.n_dim_qb*6, self.n_dim, self.n_dim), np.int)
@@ -20,15 +20,20 @@ class genQubitMat():
         qi = 0
         qb = 0
         n_split = self.n_dim
+        out_i = []
         while 2**qb < self.n_dim:
             n_split = int(self.n_dim / 2**(qb+1))
             n_loop   = int(self.n_dim / n_split)
+            if (n_split <= n_skip_grid):
+                break
             # 1st type  
             istart = 0
             for ni in range(n_loop):
                 qmat[qi][istart:istart+n_split, :] = ni % 2
                 istart += n_split
             qmat[qi+1] = -qmat[qi]+1
+            out_i.append(qi)
+            out_i.append(qi+1)
 
             # 2nd type  
             istart = 0
@@ -36,14 +41,18 @@ class genQubitMat():
                 qmat[qi+2][:, istart:istart+n_split] = ni % 2
                 istart += n_split
             qmat[qi+3] = -qmat[qi+2]+1
+            out_i.append(qi+2)
+            out_i.append(qi+3)
 
             # 3rd type
             qmat[qi+4] = np.abs(qmat[qi]-qmat[qi+2])
             qmat[qi+5] = -qmat[qi+4]+1 
+            out_i.append(qi+4)
+            out_i.append(qi+5)
 
             qi += 6
             qb += 1
-        self.qmat = qmat
+        self.qmat = qmat[out_i,...]
 
 if __name__ == "__main__":
     cqmat = genQubitMat(10)
