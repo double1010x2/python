@@ -1,6 +1,7 @@
 from codecs import IncrementalDecoder
 from functools import total_ordering
 from operator import imatmul
+from tkinter import W
 from numpy.core.getlimits import iinfo
 from numpy.lib.function_base import _update_dim_sizes
 from numpy.lib.type_check import imag
@@ -16,7 +17,7 @@ from matplotlib import pyplot as plt
 import genQmat2 as gq
 
 device = "cpu"
-batch_size_list = [32, 64, 128]
+batch_size_list = [64, 128]
 batch_size = 256
 # Transform
 transform = transforms.Compose(
@@ -29,7 +30,7 @@ trainSet = datasets.MNIST(root='MNIST', download=True, train=True, transform=tra
 testSet = datasets.MNIST(root='MNIST', download=True, train=False, transform=transform)
 trainLoader = dset.DataLoader(trainSet, batch_size=batch_size, shuffle=True)
 testLoader = dset.DataLoader(testSet, batch_size=batch_size, shuffle=False)
-
+import pdb; pdb.set_trace()
 n_mixer = 4
 n_top = 0
 n_qb = 6
@@ -120,23 +121,28 @@ def extractQfeature(data):
     data_sum[data_sum<=0] = 1
 
     input       = np.zeros((n_batch, n_qmat*n_q*n_mixer**2), np.float32)
-    ni = 0
     n_step = data_sum.shape[-1]
     for qi, qq in enumerate(cqmat.qmat):
-        qfeature = _data[:,ni,...]*qq
-        qfeature = qfeature.reshape(n_batch, -1)
+        qfeature = _data[:,:,...]*qq
+        qfeature = qfeature.reshape(n_batch, n_step, -1).sum(axis=2)
         input[:,qi*n_step:(qi+1)*n_step]   = qfeature/data_sum
     input       = torch.from_numpy(input)
     input, labels  = input.to(device), data[1].to(device)
     return input, labels
 
+
+loss_epoch          = []
+loss_all            = []
+loss_all_x          = []
 for epoch in range(epochs):
     running_loss    = 0.
     total           = 0.
     correct         = 0.
     batch_size      = batch_size_list[epoch // epoch_step]
-    trainSet = datasets.MNIST(root='MNIST', download=False, train=True, transform=transform)
-    trainLoader = dset.DataLoader(trainSet, batch_size=batch_size, shuffle=True)
+    trainSet        = datasets.MNIST(root='MNIST', download=False, train=True, transform=transform)
+    trainLoader     = dset.DataLoader(trainSet, batch_size=batch_size, shuffle=True)
+    loss_           = 0. 
+    ei_             = int(0) 
     for times, data in enumerate(trainLoader):
         inputs, labels  = extractQfeature(data) 
         optimizer.zero_grad()
@@ -149,6 +155,10 @@ for epoch in range(epochs):
 
         # Print statistics
         running_loss += loss.item()/batch_size
+        loss_all.append(running_loss)
+        loss_all_x.append(epoch + (times+1)/len(trainLoader))
+        loss_ += running_loss 
+        ei_   += 1
         if times % 100 == 99 or times+1 == len(trainLoader):
             print(f'[{epoch+1}/{epochs}, {times+1}/{len(trainLoader)} loss: {loss.item():.3f}/{running_loss:.3f}')
         #    _, predicted = torch.max(outputs.data, 1)
@@ -156,7 +166,14 @@ for epoch in range(epochs):
         #    correct += (predicted == labels).sum().item()
         #    print('Average Accuracy of the network on the training images: %d %%' % (100*correct / total))
         #    print(f'Accuracy of the network on the training images: {100*(predicted==labels).sum()/labels.size(0)} %%' )
+    loss_epoch.append(loss_ / ei_)
 print('Training Finished.')
+plt.plot(loss_epoch, "r-o")
+#plt.legend(["loss(epoch)", "loss(all)"])
+plt.xlabel("epoch")
+plt.ylabel("loss")
+plt.title("Training status")
+plt.show()
 
 
 
@@ -191,6 +208,20 @@ with torch.no_grad():
             class_total[label] += 1
 #            print(class_correct)
 #            print(class_total)
+acc_ = [(class_correct[i] / class_total[i]) * 100. for i in range(10)]
 
 for i in range(10):
     print('Accuracy of %d: %3f' % (i, (class_correct[i]/class_total[i])))
+
+fig, ax = plt.subplots()
+width = 0.75
+ind = np.arange(10)
+ax.barh(ind, acc_, width, color="gray")
+ax.set_yticks(ind+width/2)
+ax.set_yticklabels(ind, minor=False)
+for i, v in enumerate(acc_):
+    ax.text(v+2, i-0.2, f"{v:.2f}", color="black", fontweight="bold")
+plt.xlabel("Precision(%)")
+plt.ylabel("number of mnist")
+plt.title("mnist results")
+plt.show()
